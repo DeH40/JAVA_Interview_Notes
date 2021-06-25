@@ -2316,7 +2316,7 @@ AQS同步队列的基本结构
     private final boolean parkAndCheckInterrupt() {
             LockSupport.park(this);
         	//返回当前线程的中断记录
-            return Thread.interrupted(); //这里涉及到java协作式中段的知识
+            return Thread.interrupted(); //这里涉及到java协作式中断的知识
         }
     ```
   
@@ -2656,4 +2656,309 @@ public abstract class AbstractQueuedSynchronizer
 线程A结束工作，调用unlock()的tryRelease()后的状态，state由1变为0，exclusiveOwnerThread由线程A变为null。
 
 ![img](Java面试题.assets/4834c2b2372914e35d9e6a40d8618b25.png)
+
+## 不同版本Spring的AOP执行顺序
+
+### Spring4.x
+
+```java
+Spring Verision : 4.3.13.RELEASE, Sring Boot Version : 1.5.9.RELEASE.
+
+我是环绕通知之前AAA
+********@Before我是前置通知
+===>CalcServiceImpl被调用，计算结果为：5
+我是环绕通知之后BBB
+********@After我是后置通知
+********@AfterReturning我是返回后通知
+```
+
+```java
+Spring Verision : 4.3.13.RELEASE, Sring Boot Version : 1.5.9.RELEASE.
+
+我是环绕通知之前AAA
+********@Before我是前置通知
+********@After我是后置通知
+********@AfterThrowing我是异常通知
+
+java.lang.ArithmeticException: / by zero
+	at com.lun.interview.service.CalcServiceImpl.div(CalcServiceImpl.java:10)
+	at sun.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at sun.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:62)
+	at sun.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.lang.reflect.Method.invoke(Method.java:498)
+	...
+```
+
+### Spring5.x
+
+```java
+Spring Verision : 5.2.8.RELEASE, Sring Boot Version : 2.3.3.RELEASE.
+
+我是环绕通知之前AAA
+********@Before我是前置通知
+===>CalcServiceImpl被调用，计算结果为：5
+********@AfterReturning我是返回后通知
+********@After我是后置通知
+我是环绕通知之后BBB
+```
+
+```java
+Spring Verision : 5.2.8.RELEASE, Sring Boot Version : 2.3.3.RELEASE.
+
+我是环绕通知之前AAA
+********@Before我是前置通知
+********@AfterThrowing我是异常通知
+********@After我是后置通知
+
+java.lang.ArithmeticException: / by zero
+	at com.lun.interview.service.CalcServiceImpl.div(CalcServiceImpl.java:10)
+	at com.lun.interview.service.CalcServiceImpl$$FastClassBySpringCGLIB$$355acbc4.invoke(<generated>)
+	at org.springframework.cglib.proxy.MethodProxy.invoke(MethodProxy.java:218)
+	at org.springframework.aop.framework.CglibAopProxy$CglibMethodInvocation.invokeJoinpoint(CglibAopProxy.java:771)
+```
+
+## Spring的循环依赖
+
+- 你解释下spring中的三级缓存？
+- 三级缓存分别是什么？三个Map有什么异同？
+- 什么是循环依赖？请你谈谈？看过spring源码吗？
+- 如何检测是否存在循环依赖？实际开发中见过循环依赖的异常吗？
+- 多例的情况下，循环依赖问题为什么无法解决？
+
+什么是循环依赖？
+
+多个bean之间相互依赖，形成了一个闭环。比如：A依赖于B、B依赖于C、C依赖于A。
+
+通常来说，如果问Spring容器内部如何解决循环依赖，一定是指默认的单例Bean中，属性互相引用的场景。
+
+![img](Java面试题.assets/cbc160e2abda182bc696ff47e3fe5ec5.png)
+
+我们AB循环依赖问题只要A的**注入方式是setter且singleton** ，就不会有循环依赖问题。
+
+### Spring循环依赖bug演示
+
+beans：A，B
+
+```java
+public class A {
+
+	private B b;
+
+	public B getB() {
+		return b;
+	}
+
+	public void setB(B b) {
+		this.b = b;
+        System.out.println("A call setB.");
+	}
+}
+```
+
+```java
+public class B {
+
+	private A a;
+
+	public A getA() {
+		return a;
+	}
+
+	public void setA(A a) {
+		this.a = a;
+        System.out.println("B call setA.");
+	}	
+}
+```
+
+beans.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+       http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+       http://www.springframework.org/schema/context 
+       http://www.springframework.org/schema/context/spring-context-4.0.xsd
+       http://www.springframework.org/schema/tx 
+       http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop-4.0.xsd">
+    
+    <bean id="a" class="com.lun.interview.circular.A">
+    	<property name="b" ref="b"></property>
+    </bean>
+    <bean id="b" class="com.lun.interview.circular.B">
+    	<property name="a" ref="a"></property>
+    </bean>
+    
+</beans>
+```
+
+运行类
+
+```java
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+
+public class ClientSpringContainer {
+
+	public static void main(String[] args) {
+		ApplicationContext context = new ClassPathXmlApplicationContext("beans.xml");
+		A a = context.getBean("a", A.class);
+		B b = context.getBean("b", B.class);
+	}
+}
+```
+
+输出结果
+
+```java
+00:00:25.649 [main] DEBUG org.springframework.context.support.ClassPathXmlApplicationContext - Refreshing org.springframework.context.support.ClassPathXmlApplicationContext@6d86b085
+00:00:25.828 [main] DEBUG org.springframework.beans.factory.xml.XmlBeanDefinitionReader - Loaded 2 bean definitions from class path resource [beans.xml]
+00:00:25.859 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'a'
+00:00:25.875 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'b'
+B call setA.
+A call setB.
+```
+
+
+
+默认的单例(Singleton)的场景是**支持**循环依赖的，不报错
+
+
+
+原型(Prototype)的场景是不支持循环依赖的，会报错
+
+beans.xml
+
+```xml
+<?xml version="1.0" encoding="UTF-8" ?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans 
+       http://www.springframework.org/schema/beans/spring-beans-4.0.xsd
+       http://www.springframework.org/schema/context 
+       http://www.springframework.org/schema/context/spring-context-4.0.xsd
+       http://www.springframework.org/schema/tx 
+       http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop-4.0.xsd">
+    
+
+    <bean id="a" class="com.lun.interview.circular.A" scope="prototype">
+    	<property name="b" ref="b"></property>
+    </bean>
+    <bean id="b" class="com.lun.interview.circular.B" scope="prototype">
+    	<property name="a" ref="a"></property>
+    </bean>
+
+</beans>
+```
+
+输出结果
+
+```java
+00:01:39.904 [main] DEBUG org.springframework.context.support.ClassPathXmlApplicationContext - Refreshing org.springframework.context.support.ClassPathXmlApplicationContext@6d86b085
+00:01:40.062 [main] DEBUG org.springframework.beans.factory.xml.XmlBeanDefinitionReader - Loaded 2 bean definitions from class path resource [beans.xml]
+Exception in thread "main" org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'a' defined in class path resource [beans.xml]: Cannot resolve reference to bean 'b' while setting bean property 'b'; nested exception is org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'b' defined in class path resource [beans.xml]: Cannot resolve reference to bean 'a' while setting bean property 'a'; nested exception is org.springframework.beans.factory.BeanCurrentlyInCreationException: Error creating bean with name 'a': Requested bean is currently in creation: Is there an unresolvable circular reference?
+	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:342)
+	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveValueIfNecessary(BeanDefinitionValueResolver.java:113)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyPropertyValues(AbstractAutowireCapableBeanFactory.java:1697)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1442)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:593)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:516)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:342)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:207)
+	at org.springframework.context.support.AbstractApplicationContext.getBean(AbstractApplicationContext.java:1115)
+	at com.lun.interview.circular.ClientSpringContainer.main(ClientSpringContainer.java:10)
+Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'b' defined in class path resource [beans.xml]: Cannot resolve reference to bean 'a' while setting bean property 'a'; nested exception is org.springframework.beans.factory.BeanCurrentlyInCreationException: Error creating bean with name 'a': Requested bean is currently in creation: Is there an unresolvable circular reference?
+	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:342)
+	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveValueIfNecessary(BeanDefinitionValueResolver.java:113)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.applyPropertyValues(AbstractAutowireCapableBeanFactory.java:1697)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.populateBean(AbstractAutowireCapableBeanFactory.java:1442)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.doCreateBean(AbstractAutowireCapableBeanFactory.java:593)
+	at org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory.createBean(AbstractAutowireCapableBeanFactory.java:516)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:342)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:330)
+	... 9 more
+Caused by: org.springframework.beans.factory.BeanCurrentlyInCreationException: Error creating bean with name 'a': Requested bean is currently in creation: Is there an unresolvable circular reference?
+	at org.springframework.beans.factory.support.AbstractBeanFactory.doGetBean(AbstractBeanFactory.java:268)
+	at org.springframework.beans.factory.support.AbstractBeanFactory.getBean(AbstractBeanFactory.java:202)
+	at org.springframework.beans.factory.support.BeanDefinitionValueResolver.resolveReference(BeanDefinitionValueResolver.java:330)
+	... 17 more
+```
+
+重要结论(spring内部通过3级缓存来解决循环依赖) - DefaultSingletonBeanRegistry
+
+只有单例的bean会通过三级缓存提前暴露来解决循环依赖的问题，而非单例的bean，每次从容器中获取都是一个新的对象，都会重新创建，所以非单例的bean是没有缓存的，不会将其放到三级缓存中。
+
+第一级缓存（也叫单例池）singletonObjects：存放已经经历了完整生命周期的Bean对象。
+
+第二级缓存：earlySingletonObjects，存放早期暴露出来的Bean对象，Bean的生命周期未结束（属性还未填充完。
+
+第三级缓存：Map<String, ObjectFactory<?>> singletonFactories，存放可以生成Bean的工厂。
+
+```java
+package org.springframework.beans.factory.support;
+
+...
+
+public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements SingletonBeanRegistry {
+
+	...
+
+	/** Cache of singleton objects: bean name to bean instance. */
+	private final Map<String, Object> singletonObjects = new ConcurrentHashMap<>(256);
+
+	/** Cache of singleton factories: bean name to ObjectFactory. */
+	private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap<>(16);
+
+	/** Cache of early singleton objects: bean name to bean instance. */
+	private final Map<String, Object> earlySingletonObjects = new HashMap<>(16);
+ 
+    ...
+    
+}
+```
+
+### Spring循环依赖处理
+
+实例化 - 内存中申请一块内存空间，如同租赁好房子，自己的家当还未搬来。
+
+初始化属性填充 - 完成属性的各种赋值，如同装修，家具，家电进场。
+
+3个Map和四大方法，总体相关对象
+
+![img](Java面试题.assets/fe2c0b589930bbf2988a374c2644d941.png)
+
+第一层singletonObjects存放的是已经初始化好了的Bean,
+
+第二层earlySingletonObjects存放的是实例化了，但是未初始化的Bean,
+
+第三层singletonFactories存放的是FactoryBean。假如A类实现了FactoryBean,那么依赖注入的时候不是A类，而是A类产生的Bean
+
+**A / B两对象在三级缓存中的迁移说明**
+
+- A创建过程中需要B，于是A将自己放到三级缓里面，去实例化B。
+- B实例化的时候发现需要A，于是B先查一级缓存，没有，再查二级缓存，还是没有，再查三级缓存，找到了A然后把三级缓存里面的这个A放到二级缓存里面，并删除三级缓存里面的A。
+- B顺利初始化完毕，将自己放到一级缓存里面（此时B里面的A依然是创建中状态)，然后回来接着创建A，此时B已经创建结束，直接从一级缓存里面拿到B，然后完成创建，并将A自己放到一级缓存里面。
+
+**总结**
+
+Spring创建 bean主要分为两个步骤，**创建原始bean对象**，接着去**填充对象属性和初始化**
+
+每次创建 bean之前，我们都会从缓存中查下有没有该bean，因为是单例，只能有一个
+
+当我们创建 beanA的原始对象后，并把它放到三级缓存中，接下来就该填充对象属性了，这时候发现依赖了beanB，接着就又去创建beanB，同样的流程，创建完beanB填充属性时又发现它依赖了beanA又是同样的流程，
+
+不同的是：这时候可以在三级缓存中查到刚放进去的原始对象beanA.所以不需要继续创建，用它注入 beanB，完成 beanB的创建
+
+既然 beanB创建好了，所以 beanA就可以完成填充属性的步骤了，接着执行剩下的逻辑，闭环完成
 
