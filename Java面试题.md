@@ -2962,3 +2962,860 @@ Spring创建 bean主要分为两个步骤，**创建原始bean对象**，接着�
 
 既然 beanB创建好了，所以 beanA就可以完成填充属性的步骤了，接着执行剩下的逻辑，闭环完成
 
+![image-20210625165305634](Java面试题.assets/image-20210625165305634.png)
+
+## Redis五种基本数据类型及其应用场景
+
+redis基本类型：
+
+- string
+- list
+- set
+- zset（sorted set）
+- hash
+
+其他redis的类型
+
+- bitmap
+- HyperLogLogs
+- GEO
+- Stream
+
+备注
+
+- **命令不区分大小写**，而key是区分大小写的
+- help @类型名词
+
+### string类型使用场景
+
+最常用
+
+- SET key value
+- GET key
+
+同时设置/获取多个键值
+
+- MSET key value [key value…]
+- MGET key [key…]
+
+数值增减
+
+- 递增数字 INCR key（可以不用预先设置key的数值。如果预先设置key但值不是数字，则会报错)
+- 增加指定的整数 INCRBY key increment
+- 递减数值 DECR key
+- 减少指定的整数 DECRBY key decrement
+
+获取字符串长度
+
+- STRLEN key
+
+分布式锁
+
+- SETNX key value
+- SET key value [EX seconds] [PX milliseconds] [NX|XX]
+  EX：key在多少秒之后过期
+  PX：key在多少毫秒之后过期
+  NX：当key不存在的时候，才创建key，效果等同于setnx
+  XX：当key存在的时候，覆盖key
+
+应用场景
+
+- 商品编号、订单号采用INCR命令生成
+- 是否喜欢的文章
+
+### hash类型使用场景
+
+Redis的Hash类型相当于Java中Map<String, Map<Object, Object>>
+
+一次设置一个字段值 HSET key field value
+
+一次获取一个字段值 HGET key field
+
+一次设置多个字段值 HMSET key field value [field value …]
+
+一次获取多个字段值 HMGET key field [field …]
+
+获取所有字段值 HGETALL key
+
+获取某个key内的全部数量 HLEN
+
+删除一个key HDEL
+
+应用场景 - 购物车早期，当前小中厂可用
+
+- 新增商品 hset shopcar:uid1024 334488 1
+- 新增商品 hset shopcar:uid1024 334477 1
+- 增加商品数量 hincrby shopcar:uid1024 334477 1
+- 商品总数 hlen shopcar:uid1024
+- 全部选择 hgetall shopcar:uid1024
+
+### list类型使用场景
+
+向列表左边添加元素 LPUSH key value [value …]
+
+向列表右边添加元素 RPUSH key value [value …]
+
+查看列表 LRANGE key start stop
+
+获取列表中元素的个数 LLEN key
+
+应用场景 - 微信文章订阅公众号
+
+1.大V作者李永乐老师和ICSDN发布了文章分别是11和22
+2.阳哥关注了他们两个，只要他们发布了新文章，就会安装进我的List
+	1.lpush likearticle:阳哥id1122
+3.查看阳哥自己的号订阅的全部文章，类似分页，下面0~10就是一次显示10条
+	1.lrange likearticle:阳哥id 0 10
+
+### set类型使用场景
+
+添加元素 SADD key member [member …]
+
+删除元素 SREM key member [member …]
+
+获取集合中的所有元素 SMEMBERS key
+
+判断元素是否在集合中 SISMEMBER key member
+
+获取集合中的元素个数 SCARD key
+
+从集合中随机弹出一个元素，元素不删除 SRANDMEMBER key [数字]
+
+从集合中随机弹出一个元素，出一个删一个 SPOP key[数字]
+
+集合运算
+
+- 集合的差集运算A - B
+  - 属于A但不属于B的元素构成的集合
+  - SDIFF key [key …]
+- 集合的交集运算A ∩ B
+  - 属于A同时也属于B的共同拥有的元素构成的集合
+  - SINTER key [key …]
+- 集合的并集运算A U B
+  - 属于A或者属于B的元素合并后的集合
+  - SUNION key [key …]
+
+应用场景
+
+- 微信抽奖小程序
+  - 用户ID，立即参与按钮
+    - SADD key 用户ID
+  - 显示已经有多少人参与了、上图23208人参加
+    - SCARD key
+  - 抽奖(从set中任意选取N个中奖人)
+    - SRANDMEMBER key 2（随机抽奖2个人，元素不删除）
+    - SPOP key 3（随机抽奖3个人，元素会删除）
+
+- 微信朋友圈点赞
+  - 新增点赞
+    - sadd pub:msglD 点赞用户ID1 点赞用户ID2
+  - 取消点赞
+    - srem pub:msglD 点赞用户ID
+  - 展现所有点赞过的用户
+    - SMEMBERS pub:msglD
+  - 点赞用户数统计，就是常见的点赞红色数字
+    - scard pub:msgID
+  - 判断某个朋友是否对楼主点赞过
+    - SISMEMBER pub:msglD用户ID
+- 微博好友关注社交关系
+  - 共同关注：我去到局座张召忠的微博，马上获得我和局座共同关注的人
+    - sadd s1 1 2 3 4 5
+    - sadd s2 3 4 5 6 7
+    - SINTER s1 s2
+  - 我关注的人也关注他(大家爱好相同)
+- QQ内推可能认识的人
+  - sadd s1 1 2 3 4 5
+  - sadd s2 3 4 5 6 7
+  - SINTER s1 s2
+  - SDIFF s1 s2
+  - SDIFF s2 s1
+
+### zset类型使用场景
+向有序集合中加入一个元素和该元素的分数
+
+添加元素 ZADD key score member [score member …]
+
+按照元素分数从小到大的顺序返回索引从start到stop之间的所有元素 ZRANGE key start stop [WITHSCORES]
+
+获取元素的分数 ZSCORE key member
+
+删除元素 ZREM key member [member …]
+
+获取指定分数范围的元素 ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT offset count]
+
+增加某个元素的分数 ZINCRBY key increment member
+
+获取集合中元素的数量 ZCARD key
+
+获得指定分数范围内的元素个数 ZCOUNT key min max
+
+按照排名范围删除元素 ZREMRANGEBYRANK key start stop
+
+获取元素的排名
+
+- 从小到大 ZRANK key member
+- 从大到小 ZREVRANK key member
+
+应用场景
+
+- 根据商品销售对商品进行排序显示
+  - 定义商品销售排行榜（sorted set集合），key为goods:sellsort，分数为商品销售数量。
+    - 商品编号1001的销量是9，商品编号1002的销量是15 - zadd goods:sellsort 9 1001 15 1002
+    - 有一个客户又买了2件商品1001，商品编号1001销量加2 - zincrby goods:sellsort 2 1001
+    - 求商品销量前10名 - ZRANGE goods:sellsort 0 10 withscores
+  - 抖音热搜
+    - 点击视频
+      - ZINCRBY hotvcr:20200919 1 八佰
+      - ZINCRBY hotvcr:20200919 15 八佰 2 花木兰
+    - 展示当日排行前10条
+      - ZREVRANGE hotvcr:20200919 0 9 withscores
+
+## Redis分布式锁 层层深入
+
+### redis分布式锁01
+
+JVM层面的加锁，单机版的锁
+
+- synchronized
+- ReentraLock
+
+
+
+```java
+class X {
+    private final ReentrantLock lock = new ReentrantLock();
+    // ...
+
+    public void m() {
+        lock.lock();  // block until condition holds//不见不散
+        try {
+            // ... method body
+        } finally {
+            lock.unlock()
+        }
+    }
+     
+     
+    public void m2() {
+
+       	if(lock.tryLock(timeout, unit)){//过时不候
+            try {
+            // ... method body
+            } finally {
+                lock.unlock()
+            }   
+        }else{
+            // perform alternative actions
+        }
+   }
+ }
+```
+
+### redis分布式锁02
+
+分布式部署后，单机锁还是出现超卖现象，需要分布式锁
+
+![img](Java面试题.assets/5717f85d1e82aa9a581e2404bd9cdb1e.png)
+
+redis cluster
+
+Nginx配置负载均衡，[Nginx学习笔记](https://blog.csdn.net/u011863024/article/details/107407905)or[备份](https://my.oschina.net/jallenkwong/blog/4400420)
+
+Redis具有极高的性能，且其命令对分布式锁支持友好，借助SET命令即可实现加锁处理。
+
+SET
+
+- EX seconds – Set the specified expire time, in seconds.
+- PX milliseconds – Set the specified expire time, in milliseconds.
+- NX – Only set the key if it does not already exist.
+- XX – Only set the key if it already exist.
+
+Java层面
+
+```java
+public static final String REDIS_LOCK = "redis_lock";
+
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+
+public void m(){
+    String value = UUID.randomUUID().toString() + Thread.currentThread().getName();
+
+    Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(REDIS_LOCK, value);
+
+
+    if(!flag) {
+        return "抢锁失败";
+    }
+ 
+    ...//业务逻辑
+    
+    stringRedisTemplate.delete(REDIS_LOCK);
+}
+```
+
+### redis分布式锁03
+
+**上面Java源码分布式锁问题**：出现异常的话，可能无法释放锁，必须要在代码层面finally释放锁。
+
+解决方法：try…finally…
+
+```java
+public static final String REDIS_LOCK = "redis_lock";
+
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+
+public void m(){
+    String value = UUID.randomUUID().toString() + Thread.currentThread().getName();
+
+    try{
+		Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(REDIS_LOCK, value);
+
+   		if(!flag) {
+        	return "抢锁失败";
+	    }
+        
+    	...//业务逻辑
+            
+    }finally{
+	    stringRedisTemplate.delete(REDIS_LOCK);   
+    }
+}
+```
+
+**另一个问题**：部署了微服务jar包的机器挂了，代码层面根本没有走到finally这块，没办法保证解锁，这个key没有被删除，需要加入一个过期时间限定key。
+
+```java
+public static final String REDIS_LOCK = "redis_lock";
+
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+
+public void m(){
+    String value = UUID.randomUUID().toString() + Thread.currentThread().getName();
+
+    try{
+		Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(REDIS_LOCK, value);
+		//设定时间
+        stringRedisTemplate.expire(REDIS_LOCK, 10L, TimeUnit.SECONDS);
+        
+   		if(!flag) {
+        	return "抢锁失败";
+	    }
+        
+    	...//业务逻辑
+            
+    }finally{
+	    stringRedisTemplate.delete(REDIS_LOCK);   
+    }
+}
+```
+
+### redis分布式锁04
+
+**新问题**：设置key+过期时间分开了，必须要合并成一行具备原子性。
+
+解决方法：
+
+```java
+public static final String REDIS_LOCK = "redis_lock";
+
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+
+public void m(){
+    String value = UUID.randomUUID().toString() + Thread.currentThread().getName();
+
+    try{
+		Boolean flag = stringRedisTemplate.opsForValue()//使用另一个带有设置超时操作的方法
+            .setIfAbsent(REDIS_LOCK, value, 10L, TimeUnit.SECONDS);
+		//设定时间
+        //stringRedisTemplate.expire(REDIS_LOCK, 10L, TimeUnit.SECONDS);
+        
+   		if(!flag) {
+        	return "抢锁失败";
+	    }
+        
+    	...//业务逻辑
+            
+    }finally{
+	    stringRedisTemplate.delete(REDIS_LOCK);   
+    }
+}
+```
+
+**另一个新问题**：张冠李戴，删除了别人的锁
+
+![img](Java面试题.assets/8491f7f7a87dcc888d60141f6d662e1b.png)
+
+解决方法：只能自己删除自己的，不许动别人的。
+
+```java
+public static final String REDIS_LOCK = "redis_lock";
+
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+
+public void m(){
+    String value = UUID.randomUUID().toString() + Thread.currentThread().getName();
+
+    try{
+		Boolean flag = stringRedisTemplate.opsForValue()//使用另一个带有设置超时操作的方法
+            .setIfAbsent(REDIS_LOCK, value, 10L, TimeUnit.SECONDS);
+		//设定时间
+        //stringRedisTemplate.expire(REDIS_LOCK, 10L, TimeUnit.SECONDS);
+        
+   		if(!flag) {
+        	return "抢锁失败";
+	    }
+        
+    	...//业务逻辑
+            
+    }finally{
+        if(stringRedisTemplate.opsForValue().get(REDIS_LOCK).equals(value)) {
+            stringRedisTemplate.delete(REDIS_LOCK);
+        }
+    }
+}
+```
+
+### redis分布式锁05
+
+inally块的判断 + del删除操作不是原子性的
+
+用lua脚本
+
+用redis自身的事务
+
+Redis事务复习，[Redis学习笔记](https://blog.csdn.net/u011863024/article/details/107476187)
+
+事务介绍
+
+- Redis的事条是通过MULTI，EXEC，DISCARD和WATCH这四个命令来完成。
+- Redis的单个命令都是原子性的，所以这里确保事务性的对象是命令集合。
+- Redis将命令集合序列化并确保处于一事务的命令集合连续且不被打断的执行。
+- Redis不支持回滚的操作。
+
+![image-20210628103454911](Java面试题.assets/image-20210628103454911.png)
+
+```java
+public static final String REDIS_LOCK = "redis_lock";
+
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+
+public void m(){
+    String value = UUID.randomUUID().toString() + Thread.currentThread().getName();
+
+    try{
+		Boolean flag = stringRedisTemplate.opsForValue()//使用另一个带有设置超时操作的方法
+            .setIfAbsent(REDIS_LOCK, value, 10L, TimeUnit.SECONDS);
+		//设定时间
+        //stringRedisTemplate.expire(REDIS_LOCK, 10L, TimeUnit.SECONDS);
+        
+   		if(!flag) {
+        	return "抢锁失败";
+	    }
+        
+    	...//业务逻辑
+            
+    }finally{
+        while(true){
+            stringRedisTemplate.watch(REDIS_LOCK);
+            if(stringRedisTemplate.opsForValue().get(REDIS_LOCK).equalsIgnoreCase(value)){
+                stringRedisTemplate.setEnableTransactionSupport(true);
+                stringRedisTemplate.multi();
+                stringRedisTemplate.delete(REDIS_LOCK);
+                List<Object> list = stringRedisTemplate.exec();
+                if (list == null) {
+                    continue;
+                }
+            }
+            stringRedisTemplate.unwatch();
+            break;
+        } 
+    }
+}
+```
+
+### redis分布式锁07
+
+### redis分布式锁07
+
+Redis调用Lua脚本通过eval命令保证代码执行的原子性
+
+```java
+public static final String REDIS_LOCK = "redis_lock";
+
+@Autowired
+private StringRedisTemplate stringRedisTemplate;
+
+public void m(){
+    String value = UUID.randomUUID().toString() + Thread.currentThread().getName();
+
+    try{
+		Boolean flag = stringRedisTemplate.opsForValue()//使用另一个带有设置超时操作的方法
+            .setIfAbsent(REDIS_LOCK, value, 10L, TimeUnit.SECONDS);
+		//设定时间
+        //stringRedisTemplate.expire(REDIS_LOCK, 10L, TimeUnit.SECONDS);
+        
+   		if(!flag) {
+        	return "抢锁失败";
+	    }
+        
+    	...//业务逻辑
+            
+    }finally{
+    	Jedis jedis = RedisUtils.getJedis();
+    	
+    	String script = "if redis.call('get', KEYS[1]) == ARGV[1] "
+    			+ "then "
+    			+ "    return redis.call('del', KEYS[1]) "
+    			+ "else "
+    			+ "    return 0 "
+    			+ "end";
+    	
+    	try {
+    		
+    		Object o = jedis.eval(script, Collections.singletonList(REDIS_LOCK),// 
+    				Collections.singletonList(value));
+    		
+    		if("1".equals(o.toString())) {
+    			System.out.println("---del redis lock ok.");
+    		}else {
+    			System.out.println("---del redis lock error.");
+    		}
+    		
+    		
+    	}finally {
+    		if(jedis != null) 
+    			jedis.close();
+    	}
+    }
+}
+```
+
+### redis分布式锁08
+
+确保RedisLock过期时间大于业务执行时间的问题
+
+Redis分布式锁如何续期？
+
+集群 + CAP对比ZooKeeper 对比ZooKeeper，重点，CAP
+
+- Redis集群 - AP -redis异步复制造成的锁丢失，比如：主节点没来的及把刚刚set进来这条数据给从节点，就挂了。
+- ZooKeeper - CP
+
+CAP
+
+- C：Consistency（强一致性）
+- A：Availability（可用性）
+- P：Partition tolerance（分区容错性）
+
+综上所述
+
+Redis集群环境下，我们自己写的也不OK，直接上RedLock之Redisson落地实现。
+
+### redis分布式锁09
+
+[Redisson官方网站](https://redisson.org/)
+
+Redisson配置类
+
+```java
+import org.redisson.Redisson;
+import org.redisson.config.Config;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+
+@Configuration
+public class RedisConfig {
+
+    @Bean
+    public Redisson redisson() {
+    	Config config = new Config();
+    	config.useSingleServer().setAddress("redis://127.0.0.1:6379").setDatabase(0);
+    	return (Redisson)Redisson.create(config);
+    }
+    
+}
+```
+
+Redisson模板
+
+```java
+public static final String REDIS_LOCK = "REDIS_LOCK";
+
+@Autowired
+private Redisson redisson;
+
+@GetMapping("/doSomething")
+public String doSomething(){
+
+    RLock redissonLock = redisson.getLock(REDIS_LOCK);
+    redissonLock.lock();
+    try {
+        //doSomething
+    }finally {
+        redissonLock.unlock();
+    }
+}
+```
+
+
+
+## redis内存淘汰策略
+
+**三种不同的删除策略**
+
+- 定时删除 - 总结：对CPU不友好，用处理器性能换取存储空间（拿时间换空间）
+- 惰性删除 - 总结：对memory不友好，用存储空间换取处理器性能（拿空间换时间）
+- 上面两种方案都走极端 - 定期删除 - 定期抽样key，判断是否过期（存在漏网之鱼）
+
+**定时删除**
+
+Redis不可能时时刻刻遍历所有被设置了生存时间的key，来检测数据是否已经到达过期时间，然后对它进行删除。
+
+立即删除能保证内存中数据的最大新鲜度，因为它保证过期键值会在过期后马上被删除，其所占用的内存也会随之释放。但是立即删除对cpu是最不友好的。因为删除操作会占用cpu的时间，如果刚好碰上了cpu很忙的时候，比如正在做交集或排序等计算的时候，就会给cpu造成额外的压力，让CPU心累，时时需要删除，忙死。
+
+这会产生大量的性能消耗，同时也会影响数据的读取操作。
+
+**惰性删除**
+
+数据到达过期时间，不做处理。等下次访问该数据时，
+
+如果未过期，返回数据；
+
+发现已过期，删除，返回不存在。
+
+惰性删除策略的缺点是，它对内存是最不友好的。
+
+如果一个键已经过期，而这个键又仍然保留在数据库中，那么只要这个过期键不被删除，它所占用的内存就不会释放。
+
+在使用惰性删除策略时，如果数据库中有非常多的过期键，而这些过期键又恰好没有被访问到的话，那么它们也许永远也不会被删除（除非用户手动执行FLUSHDB），我们甚至可以将这种情况看作是一种内存泄漏 – 无用的垃圾数据占用了大量的内存，而服务器却不会自己去释放它们，这对于运行状态非常依赖于内存的Redis服务器来说，肯定不是一个好消息。
+
+**定期删除**
+
+定期删除策略是前两种策略的折中：
+
+定期删除策略每隔一段时间执行一次删除过期键操作，并通过限制删除操作执行的时长和频率来减少删除操作对CPU时间的影响。
+
+周期性轮询Redis库中的时效性数据，来用随机抽取的策略，利用过期数据占比的方式控制删除频度
+
+特点1：CPU性能占用设置有峰值，检测频度可自定义设置
+
+特点2：内存压力不是很大，长期占用内存的冷数据会被持续清理
+
+总结：周期性抽查存储空间（随机抽查，重点抽查）
+
+举例：
+
+redis默认每个100ms检查，是否有过期的key，有过期key则删除。注意：redis不是每隔100ms将所有的key检查一次而是随机抽取进行检查(如果每隔100ms，全部key进行检查，redis直接进去ICU)。因此，如果只采用定期删除策略，会导致很多key到时间没有删除。
+
+定期删除策略的难点是确定删除操作执行的时长和频率:如果删除操作执行得太频繁，或者执行的时间太长，定期删除策略就会退化成定时删除策略，以至于将CPU时间过多地消耗在删除过期键上面。如果删除操作执行得太少，或者执行的时间太短，定期删除策略又会和惰性删除束略一样，出现浪费内存的情况。因此，如果采用定期删除策略的话，服务器必须根据情况，合理地设置删除操作的**执行时长和执行频率。**
+
+**上述步骤都过堂了，还有漏洞吗？**
+
+定期删除时，从来没有被抽查到
+惰性删除时，也从来没有被点中使用过
+上述2步骤====>大量过期的key堆积在内存中，导致redis内存空间紧张或者很快耗尽
+
+**必须要有一个更好的兜底方案**
+
+**内存淘汰策略登场**（Redis 6.0.8版本）
+
+- noeviction：不会驱逐任何key
+- volatile-lfu：对所有设置了过期时间的key使用LFU算法进行删除
+- volatile-Iru：对所有设置了过期时间的key使用LRU算法进行删除
+- volatile-random：对所有设置了过期时间的key随机删除
+- volatile-ttl：删除马上要过期的key
+- allkeys-lfu：对所有key使用LFU算法进行删除
+- allkeys-Iru：对所有key使用LRU算法进行删除
+- allkeys-random：对所有key随机删除
+
+## lru算法简介
+
+Redis的LRU了解过吗？可否手写一个LRU算法
+
+是什么
+
+LRU是Least Recently Used的缩写，即最近最少使用，是一种常用的页面置换算法，选择最近最久未使用的数据予以淘汰。
+
+算法来源
+
+LeetCode - Medium - 146. LRU Cache
+
+### lru的思想
+
+1.所谓缓存，必须要有读+写两个操作，按照命中率的思路考虑，写操作+读操作时间复杂度都需要为O(1)
+2.特性要求
+
+- 必须要有顺序之分，一区分最近使用的和很久没有使用的数据排序。
+- 写和读操作一次搞定。
+- 如果容量(坑位)满了要删除最不长用的数据，每次新访问还要把新的数据插入到队头(按照业务你自己设定左右那一边是队头)
+
+查找快、插入快、删除快，且还需要先后排序---------->什么样的数据结构可以满足这个问题？
+
+你是否可以在O(1)时间复杂度内完成这两种操作？
+
+如果一次就可以找到，你觉得什么数据结构最合适？
+
+答案：LRU的算法核心是哈希链表
+
+编码手写如何实现LRU
+
+本质就是HashMap + DoubleLinkedList
+
+时间复杂度是O(1)，哈希表+双向链表的结合体
+
+### 用LinkedHashMap完成lru算法
+
+```java
+import java.util.LinkedHashMap;
+
+public class LRUCache {
+	
+	private LinkedHashMap<Integer, Integer> cache;
+	
+    public LRUCache(int capacity) {
+        cache = new LinkedHashMap<Integer, Integer>(capacity, 0.75f, true){
+        	
+			private static final long serialVersionUID = 1L;
+			
+
+			@Override
+        	protected boolean removeEldestEntry(java.util.Map.Entry<Integer, Integer> eldest) {
+        		return size() > capacity;
+        	}
+        	
+        };
+    }
+    
+    public int get(int key) {
+    	return cache.getOrDefault(key, -1);
+    }
+    
+    public void put(int key, int value) {
+        cache.put(key, value);
+    }
+    
+    @Override
+    public String toString() {
+    	return cache.toString();
+    }
+    
+}
+```
+
+### 手写双向链表版本
+
+哈希表 + 双向链表
+
+```java
+class LRUCache2{
+	class Node<K, V>{//双向链表节点
+		K key;
+		V value;
+		Node<K, V> prev;
+		Node<K, V> next;
+		
+		public Node() {
+			this.prev = this.next = null;
+		}
+		public Node(K key, V value) {
+			super();
+			this.key = key;
+			this.value = value;
+		}
+	}
+	
+    //新的插入头部，旧的从尾部移除
+	class DoublyLinkedList<K, V>{
+		Node<K, V> head;
+		Node<K, V> tail;
+		
+		public DoublyLinkedList() {
+            //头尾哨兵节点
+			this.head = new Node<K, V>();
+			this.tail = new Node<K, V>();
+			this.head.next = this.tail;
+			this.tail.prev = this.head;
+		}
+		
+		public void addHead(Node<K, V> node) {
+			node.next = this.head.next;
+			node.prev = this.head;
+			this.head.next.prev = node;
+			this.head.next = node;
+		}
+		
+		public void removeNode(Node<K, V> node) {
+			node.prev.next = node.next;
+			node.next.prev = node.prev;
+			node.prev = null;
+			node.next = null;
+
+		}
+		
+		public Node<K, V> getLast() {
+			if(this.tail.prev == this.head)
+				return null;
+			return this.tail.prev;
+		}
+
+	}
+	
+	private int cacheSize;
+	private Map<Integer, Node<Integer, Integer>> map;
+	private DoublyLinkedList<Integer, Integer> doublyLinkedList;
+	
+	
+	public LRUCache2(int cacheSize) {
+		this.cacheSize = cacheSize;
+		map = new HashMap<>();
+		doublyLinkedList = new DoublyLinkedList<>();
+	}
+
+	public int get(int key) {
+		if(!map.containsKey(key)) {
+			return -1;
+		}
+		
+		Node<Integer, Integer> node = map.get(key);
+        
+        //更新节点位置，将节点移置链表头
+		doublyLinkedList.removeNode(node);
+		doublyLinkedList.addHead(node);
+		
+		return node.value;
+	}
+	
+	public void put(int key, int value) {
+		
+		if(map.containsKey(key)) {
+			
+			Node<Integer, Integer> node = map.get(key);
+			node.value = value;
+			map.put(key, node);
+			
+            
+			doublyLinkedList.removeNode(node);
+			doublyLinkedList.addHead(node);
+		}else {
+			
+			if(map.size() == cacheSize) {//已达到最大容量了，把旧的移除，让新的进来
+				Node<Integer, Integer> lastNode = doublyLinkedList.getLast();
+				map.remove(lastNode.key);//node.key主要用处，反向连接map
+				doublyLinkedList.removeNode(lastNode);
+			}
+			
+			Node<Integer, Integer> newNode = new Node<>(key, value);
+			map.put(key, newNode);
+			doublyLinkedList.addHead(newNode);
+		}
+	}	
+}
+```
+
